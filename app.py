@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import json
 import csv
 import io
+import os  # Import os to access environment variables
 
 app = Flask(__name__)
 
@@ -22,4 +23,7 @@ def convert_to_csv():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Use Render's specified PORT or default to 5000
+    port = int(os.environ.get("PORT", 5000))
+    # Bind to 0.0.0.0 so Render can access the app
+    app.run(host='0.0.0.0', port=port, debug=True)
