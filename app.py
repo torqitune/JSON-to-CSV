@@ -1,29 +1,49 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import json
 import csv
-import io
-import os  # Import os to access environment variables
+import os
+import uuid
 
 app = Flask(__name__)
+
+# Directory to store temporary CSV files
+TEMP_DIR = "temp_csvs"
+if not os.path.exists(TEMP_DIR):
+    os.makedirs(TEMP_DIR)
 
 @app.route('/convert', methods=['POST'])
 def convert_to_csv():
     try:
         data = request.get_json()  # Get JSON data from the request body
         if isinstance(data, list) and all(isinstance(item, dict) for item in data):
-            output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=data[0].keys())
-            writer.writeheader()
-            writer.writerows(data)
-            output.seek(0)
-            return output.getvalue(), 200, {'Content-Type': 'text/csv'}
+            # Create a unique file name
+            file_id = str(uuid.uuid4())
+            file_path = os.path.join(TEMP_DIR, f"{file_id}.csv")
+            
+            # Write data to a CSV file
+            with open(file_path, mode='w', newline='', encoding='utf-8') as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=data[0].keys())
+                writer.writeheader()
+                writer.writerows(data)
+            
+            # Generate download link
+            download_url = f"{request.host_url}download/{file_id}"
+            return jsonify({"message": "CSV generated", "download_url": download_url}), 200
         else:
             return jsonify({"error": "Invalid JSON format"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/download/<file_id>', methods=['GET'])
+def download_csv(file_id):
+    try:
+        file_path = os.path.join(TEMP_DIR, f"{file_id}.csv")
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True)
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
-    # Use Render's specified PORT or default to 5000
-    port = int(os.environ.get("PORT", 5000))
-    # Bind to 0.0.0.0 so Render can access the app
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True)
