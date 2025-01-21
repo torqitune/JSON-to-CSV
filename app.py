@@ -15,14 +15,23 @@ if not os.path.exists(TEMP_DIR):
 def convert_to_csv():
     try:
         data = request.get_json()  # Get JSON data from the request body
+        
+        # If the data is a list of dictionaries (expected input type)
         if isinstance(data, list) and all(isinstance(item, dict) for item in data):
+            # Extract all unique keys from the JSON to be used as CSV columns
+            fieldnames = set()
+            for item in data:
+                fieldnames.update(item.keys())
+            
+            fieldnames = list(fieldnames)  # Convert set to list to use as column headers
+
             # Create a unique file name
             file_id = str(uuid.uuid4())
             file_path = os.path.join(TEMP_DIR, f"{file_id}.csv")
-            
+
             # Write data to a CSV file
             with open(file_path, mode='w', newline='', encoding='utf-8') as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=data[0].keys())
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(data)
             
